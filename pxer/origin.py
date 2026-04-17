@@ -2,16 +2,22 @@
 xer - MMS BER <-> APER codec
 Encoding format conversion for IEC 61850 / DL/T 8211 protocol
 
-Usage:
-    from xer import aper_to_ber, ber_to_aper
+CLI usage:
+    python origin.py --ber-to-aper <hex> --asn <asn_file>
+    python origin.py --aper-to-ber <hex> --asn <asn_file>
 
-    ber_bytes = aper_to_ber(aper_bytes)   # APER -> BER
-    aper_bytes = ber_to_aper(ber_bytes)   # BER -> APER
+Library usage:
+    from xer import aper_to_ber, ber_to_aper
+    ber_bytes = aper_to_ber(aper_bytes)
+    aper_bytes = ber_to_aper(ber_bytes)
 """
 
 from pycrate_asn1c.asnproc import compile_text, generate_modules
 from pycrate_asn1c.generator import PycrateGenerator
 import importlib.util
+import argparse
+import sys
+import os
 
 __all__ = [
     "compile_asn",
@@ -53,8 +59,11 @@ def load_runtime_module(output_file: str):
     req = mms_rt.ASN1.MMSpdu
 
 def init(asn_file: str, output_file: str):
-    compile_asn(asn_file)
-    generate_runtime(output_file)
+    """Init codec - compile ASN once, then load runtime"""
+    if not os.path.exists(output_file):
+        # First time: compile ASN and generate runtime
+        compile_asn(asn_file)
+        generate_runtime(output_file)
     load_runtime_module(output_file)
 
 def aper_to_ber(aper_data: bytes) -> bytes:
@@ -143,3 +152,67 @@ def get_aper() -> bytes:
 def get_ber() -> bytes:
     """Get current PDU as BER bytes"""
     return req.to_ber()
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# CLI entry point
+# ──────────────────────────────────────────────────────────────────────────────
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="xer - MMS BER <-> APER codec"
+    )
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument("--ber-to-aper", metavar="HEX",
+                       help="Convert BER hex to APER hex")
+    group.add_argument("--aper-to-ber", metavar="HEX",
+                       help="Convert APER hex to BER hex")
+    parser.add_argument("--asn", metavar="PATH",
+                       help="ASN.1 file path (compile if provided, else load existing)")
+    parser.add_argument("--rt", metavar="PATH",
+                       help="Runtime module path (default: <asn_dir>/mms_rt.py)")
+
+    args = parser.parse_args()
+
+    # Resolve paths
+    if args.asn:
+        asn_path = args.asn
+        if not os.path.isabs(asn_path):
+            asn_path = os.path.abspath(asn_path)
+        rt_path = os.path.join(os.path.dirname(asn_path), "mms_rt.py")
+    elif args.rt:
+        rt_path = args.rt
+        if not os.path.isabs(rt_path):
+            rt_path = os.path.abspath(rt_path)
+        asn_path = None
+    else:
+        # Try default location: ./mms_rt.py or ../asn/mms_rt.py
+        default_rt = os.path.join(os.getcwd(), "mms_rt.py")
+        default_rt2 = os.path.join(os.path.dirname(os.getcwd()), "asn", "mms_rt.py")
+        if os.path.exists(default_rt):
+            rt_path = default_rt
+        elif os.path.exists(default_rt2):
+            rt_path = default_rt2
+        else:
+            parser.error("No --asn or --rt provided, and mms_rt.py not found in default locations")
+        asn_path = None
+
+    # Init codec
+    if asn_path:
+        init(asn_path, rt_path)
+    else:
+        load_runtime_module(rt_path)
+
+    # Convert
+    if args.ber_to_aper:
+        data = bytes.fromhex(args.ber_to_aper)
+        result = ber_to_aper(data)
+        print(result.hex())
+    else:
+        data = bytes.fromhex(args.aper_to_ber)
+        result = aper_to_ber(data)
+        print(result.hex())
+
+
+if __name__ == "__main__":
+    main()

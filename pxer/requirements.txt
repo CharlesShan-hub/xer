@@ -1,1 +1,6 @@
 pycrate
+nuitka
+jinja2
+setuptools
+
+
