@@ -19,6 +19,10 @@ __all__ = [
     "load_runtime_module",
     "aper_to_ber",
     "ber_to_aper",
+    "example1",
+    "example2",
+    "get_aper",
+    "get_ber",
 ]
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -87,3 +91,55 @@ def ber_to_aper(ber_data: bytes) -> bytes:
     assert req is not None
     req.from_ber(ber_data)
     return req.to_aper()
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Test Examples
+# ──────────────────────────────────────────────────────────────────────────────
+
+def example1():
+    """Example 1: Construct a Read-Request PDU with test data"""
+    req.set_val((
+        'confirmed-RequestPDU',
+        {
+            'invokeID': 123,
+            'service': (
+                'read',
+                {
+                    'variableAccessSpecification': (
+                        'listOfVariable',
+                        [{
+                            'variableSpecification': (
+                                'name',
+                                ('domain-specific', {'domainID': 'TEST', 'itemID': 'VAL1'})
+                            )
+                        }]
+                    )
+                }
+            )
+        }
+    ))
+
+
+def example2():
+    """Example 2: GetVariableAccessAttributes request"""
+    req.set_val((
+        'confirmed-RequestPDU',
+        {
+            'invokeID': 111,
+            'service': (
+                'getVariableAccessAttributes',
+                ('name', ('domain-specific', {'domainID': 'TEST', 'itemID': 'VAL1'}))
+            )
+        }
+    ))
+
+
+def get_aper() -> bytes:
+    """Get current PDU as APER bytes"""
+    return req.to_aper()
+
+
+def get_ber() -> bytes:
+    """Get current PDU as BER bytes"""
+    return req.to_ber()

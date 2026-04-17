@@ -9,8 +9,7 @@ Usage:
 
 import argparse
 import sys
-import xer
-
+import origin as xer
 
 def example1():
     """Example 1: Construct a Read-Request PDU with test data"""
