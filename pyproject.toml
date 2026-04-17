@@ -1,0 +1,13 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "xer"
+version = "0.1.0"
+description = "MMS BER <-> APER codec for IEC 61850 / DL/T 8211"
+requires-python = ">=3.12"
+dependencies = ["pycrate"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/xer"]
