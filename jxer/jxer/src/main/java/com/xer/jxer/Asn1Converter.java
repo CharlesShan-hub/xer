@@ -1,7 +1,6 @@
 package com.xer.jxer;
 
 import java.io.BufferedReader;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -9,16 +8,21 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import javax.xml.bind.DatatypeConverter;
 
 /**
  * MMS BER <-> APER codec wrapper
  *
- * Loads origin.exe from classpath resources,
- * expects asnDir to be provided at runtime.
+ * Automatically detects OS (Windows/Linux) and loads the appropriate
+ * native binary from classpath resources.
+ *
+ * Expected JAR structure:
+ *   /native/win32/origin.exe   (Windows)
+ *   /native/linux/origin.bin  (Linux)
  */
 public class Asn1Converter {
 
-    private static Path exePath;
+    private static Path nativePath;
     private static String asnDir;
 
     /**
@@ -29,29 +33,43 @@ public class Asn1Converter {
     public static void init(String asnDir) {
         Asn1Converter.asnDir = asnDir;
         try {
-            exePath = extractExe();
+            nativePath = extractNative();
         } catch (IOException e) {
-            throw new RuntimeException("Failed to extract origin.exe from JAR", e);
+            throw new RuntimeException("Failed to extract native binary from JAR", e);
         }
     }
 
     /**
-     * Extract origin.exe from classpath to temp directory.
+     * Detect OS and extract the appropriate binary from classpath.
      */
-    private static Path extractExe() throws IOException {
-        // Try to extract from JAR resources
-        String resourcePath = "/origin.exe";
-        InputStream is = Asn1Converter.class.getResourceAsStream(resourcePath);
+    private static Path extractNative() throws IOException {
+        String osName = System.getProperty("os.name", "").toLowerCase();
+        String resourcePath;
+        String suffix;
 
+        if (osName.contains("win")) {
+            resourcePath = "/native/win32/origin.exe";
+            suffix = ".exe";
+        } else if (osName.contains("linux")) {
+            resourcePath = "/native/linux/origin.bin";
+            suffix = "";
+        } else {
+            throw new IOException("Unsupported OS: " + osName + " (supported: Windows, Linux)");
+        }
+
+        InputStream is = Asn1Converter.class.getResourceAsStream(resourcePath);
         if (is == null) {
-            throw new IOException("origin.exe not found in classpath: " + resourcePath);
+            throw new IOException("Native binary not found in classpath: " + resourcePath);
         }
 
         // Extract to temp file
-        Path tempExe = Files.createTempFile("origin", ".exe");
-        tempExe.toFile().deleteOnExit();
+        Path tempNative = Files.createTempFile("origin", suffix);
+        tempNative.toFile().deleteOnExit();
 
-        try (OutputStream os = Files.newOutputStream(tempExe)) {
+        // Set executable permission (effective on Linux; no-op on Windows)
+        tempNative.toFile().setExecutable(true, false);
+
+        try (OutputStream os = Files.newOutputStream(tempNative)) {
             byte[] buffer = new byte[8192];
             int len;
             while ((len = is.read(buffer)) != -1) {
@@ -60,7 +78,33 @@ public class Asn1Converter {
         }
         is.close();
 
-        return tempExe;
+        return tempNative;
+    }
+
+    /**
+     * Convert BER to APER.
+     *
+     * @param ber  BER encoded data as byte array
+     * @return     APER encoded data as byte array
+     * @throws IOException on error
+     */
+    public static byte[] berToAper(byte[] ber) throws IOException {
+        String hex = DatatypeConverter.printHexBinary(ber);
+        String aperHex = berToAper(hex);
+        return DatatypeConverter.parseHexBinary(aperHex);
+    }
+
+    /**
+     * Convert APER to BER.
+     *
+     * @param aper  APER encoded data as byte array
+     * @return      BER encoded data as byte array
+     * @throws IOException on error
+     */
+    public static byte[] aperToBer(byte[] aper) throws IOException {
+        String hex = DatatypeConverter.printHexBinary(aper);
+        String berHex = aperToBer(hex);
+        return DatatypeConverter.parseHexBinary(berHex);
     }
 
     /**
@@ -99,7 +143,7 @@ public class Asn1Converter {
         Path rtPath = Paths.get(asnDir, "mms_rt.py");
 
         ProcessBuilder pb = new ProcessBuilder(
-            exePath.toString(),
+            nativePath.toString(),
             mode, hexData,
             "--rt", rtPath.toString()
         );
@@ -123,7 +167,7 @@ public class Asn1Converter {
         try {
             int exitCode = p.waitFor();
             if (exitCode != 0) {
-                throw new IOException("origin.exe exited with code: " + exitCode);
+                throw new IOException("origin exited with code: " + exitCode);
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();

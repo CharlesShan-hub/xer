@@ -1,0 +1,33 @@
+services:
+  # Linux build environment for cxer (Nuitka Python -> binary)
+  cxer-build:
+    container_name: xer-cxer-build
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    volumes:
+      - .:/app
+    working_dir: /app
+    command: ["bash", "-c", "mkdir -p /app/cxer/linux && uv venv .venv --python 3.12 --clear && uv pip install Nuitka && .venv/bin/python -m nuitka --standalone --onefile --output-dir=/app/cxer/linux --include-data-dir=/app/asn=asn /app/pxer/origin.py"]
+
+  # Linux build environment for jxer (Maven JAR build)
+  jxer-build:
+    container_name: xer-jxer-build
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    volumes:
+      - .:/app
+    working_dir: /app
+    command: ["bash", "-c", "cd /app/jxer/jxer && mvn clean package -DskipTests -q"]
+
+  # Interactive shell (for debugging)
+  shell:
+    container_name: xer-shell
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    volumes:
+      - .:/app
+    working_dir: /app
+    command: ["bash"]

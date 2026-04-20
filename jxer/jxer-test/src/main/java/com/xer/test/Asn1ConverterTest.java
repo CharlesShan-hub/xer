@@ -1,6 +1,7 @@
 package com.xer.test;
 
 import com.xer.jxer.Asn1Converter;
+import javax.xml.bind.DatatypeConverter;
 
 /**
  * Test Asn1Converter static API
@@ -62,6 +63,26 @@ public class Asn1ConverterTest {
                 System.out.println("[FAIL] Round-trip mismatch!");
                 System.out.println("  Expected: " + berHex);
                 System.out.println("  Got:      " + berBack);
+            }
+
+            // Test byte[] overloads
+            System.out.println();
+            System.out.println("[INFO] Testing byte[] overloads...");
+
+            byte[] berBytes = DatatypeConverter.parseHexBinary(berHex);
+            System.out.println("  Input bytes: " + berBytes.length);
+
+            byte[] aperBytes = Asn1Converter.berToAper(berBytes);
+            System.out.println("  APER bytes:  " + aperBytes.length);
+
+            byte[] berBackBytes = Asn1Converter.aperToBer(aperBytes);
+            System.out.println("  BER bytes:   " + berBackBytes.length);
+
+            String berBackHex = DatatypeConverter.printHexBinary(berBackBytes);
+            if (berHex.equalsIgnoreCase(berBackHex)) {
+                System.out.println("[PASS] byte[] round-trip successful!");
+            } else {
+                System.out.println("[FAIL] byte[] round-trip mismatch!");
             }
 
             System.out.println();
