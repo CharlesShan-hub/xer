@@ -1,5 +1,7 @@
 # xer - MMS BER ↔ APER 转换工具集
 
+这是一个失败的实验，到目前为止已经完全废弃，已经完全被https://github.com/CharlesShan-hub/dlt2811bean 中的ccms模块代替
+
 ## 1. 项目结构
 
 ```
